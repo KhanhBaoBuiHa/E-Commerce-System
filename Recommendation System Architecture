@@ -1,0 +1,10 @@
+                      [ User Accesses System ]
+                                  |
+             +--------------------+--------------------+
+             |                    |                    |
+     [New Shoppers]       [Casual Shoppers]    [Loyal Shoppers]
+      (Cold Start)       (Low Activity Profile) (Rich Historical Log)
+             |                    |                    |
+     [Trending Model]     [Content-Based]      [Hybrid Controller]
+    Top global items     Cosine Similarity     Weighted Score Blend
+     by active score      via last item view   (0.6 ALS + 0.4 Content)
