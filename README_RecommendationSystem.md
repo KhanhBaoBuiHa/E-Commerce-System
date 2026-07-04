@@ -3,14 +3,6 @@
 Đồ án môn **Python cho Khoa học Dữ liệu** — Lớp 23TTH, Khoa Toán - Tin học  
 Giảng viên: ThS. Hà Văn Thảo
 
-**Nhóm thực hiện:**
-| STT | Họ tên | MSSV |
-|-----|--------|------|
-| 1 | Nguyễn Thanh Ngân | 23110192 |
-| 2 | Bùi Hà Bảo Khanh | 23110168 |
-| 3 | Nguyễn Hà Sương Nguyên | 23110196 |
-| 4 | Lê Nguyễn Bảo Thi | 23110208 |
-
 ---
 
 ## Giới thiệu
