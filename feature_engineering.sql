@@ -3,11 +3,6 @@
 -- Tuong ung GD1-GD2 trong README_RecommendationSystem.md hien tai
 -- ============================================================
 
--- BUOC 0 (chi lam mot lan): tao bang interactions tu data.csv
--- Neu chua co bang nay, import bang lenh:
---   \copy interactions FROM 'data.csv' WITH (FORMAT csv, HEADER true)
--- Schema khop dung voi cot trong README: event_time, event_type,
--- product_id, category_id, category_code, brand, price, user_id, user_session
 
 CREATE TABLE IF NOT EXISTS interactions (
     event_time      TIMESTAMP,

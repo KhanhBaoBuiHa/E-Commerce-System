@@ -20,32 +20,32 @@ os.makedirs(ARTIFACT_DIR, exist_ok=True)
 # Biến cần có sẵn trong notebook: model đã train + ma trận user-item
 # + 2 dict map giữa user_id/product_id thật và index nội bộ của ALS
 with open(f"{ARTIFACT_DIR}/als_model.pkl", "wb") as f:
-    pickle.dump(model_a, f)                      # <-- THAY bằng biến ALS model thật của Khanh
+    pickle.dump(model_als, f)                      # <-- THAY bằng biến ALS model thật của Khanh
 
 with open(f"{ARTIFACT_DIR}/user_item_matrix.pkl", "wb") as f:
-    pickle.dump(user_item_csr, f)                # <-- ma trận sparse user-item dùng để train ALS
+    pickle.dump(matrix_user_item, f)                # <-- ma trận sparse user-item dùng để train ALS
 
 with open(f"{ARTIFACT_DIR}/user_id_to_idx.pkl", "wb") as f:
-    pickle.dump(user_id_to_idx, f)                # <-- dict {user_id thật: index trong ma trận}
+    pickle.dump(user_to_idx, f)                # <-- dict {user_id thật: index trong ma trận}
 
 with open(f"{ARTIFACT_DIR}/idx_to_product_id.pkl", "wb") as f:
-    pickle.dump(idx_to_product_id, f)             # <-- dict {index trong ma trận: product_id thật}
+    pickle.dump(idx_to_item, f)             # <-- dict {index trong ma trận: product_id thật}
 
 # --- 2. Model B: Content-Based (TF-IDF + Cosine Similarity) ---
 with open(f"{ARTIFACT_DIR}/cosine_sim.pkl", "wb") as f:
-    pickle.dump(cosine_sim_matrix, f)             # <-- ma trận 5844x5844 cosine similarity
+    pickle.dump(cosine_sim, f)             # <-- ma trận 5844x5844 cosine similarity
 
 with open(f"{ARTIFACT_DIR}/product_id_to_idx.pkl", "wb") as f:
-    pickle.dump(product_id_to_idx, f)             # <-- dict {product_id: index trong ma trận content}
+    pickle.dump(indices, f)             # <-- dict {product_id: index trong ma trận content}
 
 # --- 3. Baseline: Trending ---
 with open(f"{ARTIFACT_DIR}/trending_top10.pkl", "wb") as f:
-    pickle.dump(trending_top10_list, f)           # <-- list product_id top-10 phổ biến nhất
+    pickle.dump(top_10_trending, f)           # <-- list product_id top-10 phổ biến nhất
 
 # --- 4. Danh sách user thuộc nhóm "loyal" (đã có trong ALS) ---
 # Dùng để quyết định user nào chạy Weighted Hybrid vs Content-Based fallback
 with open(f"{ARTIFACT_DIR}/loyal_user_ids.pkl", "wb") as f:
-    pickle.dump(set(loyal_user_ids), f)           # <-- set user_id nằm trong nhóm >=2 tương tác + có trong ALS
+    pickle.dump(set(loyal_ids), f)           # <-- set user_id nằm trong nhóm >=2 tương tác + có trong ALS
 
 print("Đã export xong toàn bộ model vào thư mục artifacts/. Copy thư mục này")
 print("vào cùng cấp với app.py rồi chạy: uvicorn app:app --reload")

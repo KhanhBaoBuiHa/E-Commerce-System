@@ -5,6 +5,11 @@ và tái hiện đúng logic Hybrid Waterfall mô tả trong README hiện tại
   - casual (< 2 tương tác)               -> Content-Based trên sản phẩm xem gần nhất
   - cold-start (chưa có lịch sử)         -> Trending
 """
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+import pandas as pd
+
 import pickle
 from pathlib import Path
 
@@ -44,7 +49,12 @@ class RecommenderService:
 
         # TODO: thay bằng query PostgreSQL thật tới view user_last_viewed_product
         # (feature_engineering.sql) — tạm thời để dict rỗng, cần nối DB ở đây.
-        self.user_last_viewed = {}  # {user_id: product_id}
+        load_dotenv()
+        engine = create_engine(os.getenv("DATABASE_URL"))
+        df_last_viewed = pd.read_sql(
+            "SELECT user_id, product_id FROM user_last_viewed_product", engine
+        )
+        self.user_last_viewed = dict(zip(df_last_viewed.user_id, df_last_viewed.product_id))
 
     # ---------- Model A: ALS ----------
     def _recommend_als(self, user_id: int, n: int = TOP_N):
