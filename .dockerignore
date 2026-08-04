@@ -1,0 +1,10 @@
+.git
+.env
+__pycache__/
+*.pyc
+data.csv
+artifacts/
+main.ipynb
+.pytest_cache/
+tests/
+.github/

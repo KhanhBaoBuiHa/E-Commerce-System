@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # File SQL nay se TU DONG chay 1 lan duy nhat khi container db
+      # duoc tao lan dau (Postgres docker image co san co che nay).
+      - ./feature_engineering.sql:/docker-entrypoint-initdb.d/01_feature_engineering.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/ecommerce
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount artifacts/ tu may that vao container (xem giai thich trong Dockerfile)
+      - ./artifacts:/app/artifacts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
