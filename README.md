@@ -1,13 +1,17 @@
 # Hệ Thống Gợi Ý Sản Phẩm 🛒
 
-Đồ án môn **Python cho Khoa học Dữ liệu** — Lớp 23TTH, Khoa Toán - Tin học  
+[![CI](https://github.com/KhanhBaoBuiHa/E-Commerce-System/actions/workflows/ci.yml/badge.svg)](https://github.com/KhanhBaoBuiHa/E-Commerce-System/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+
+Đồ án môn **Python cho Khoa học Dữ liệu** — Lớp 23TTH, Khoa Toán - Tin học
 Giảng viên: ThS. Hà Văn Thảo
 
 ---
 
 ## Giới thiệu
 
-Trong bối cảnh quá tải thông tin của thương mại điện tử, hệ thống gợi ý đóng vai trò cá nhân hóa trải nghiệm mua sắm và tối ưu tỷ lệ chuyển đổi. Đồ án xây dựng và so sánh 3 phương pháp gợi ý khác nhau trên tập dữ liệu hành vi thực tế của một cửa hàng điện tử.
+Trong bối cảnh quá tải thông tin của thương mại điện tử, hệ thống gợi ý đóng vai trò cá nhân hóa trải nghiệm mua sắm và tối ưu tỷ lệ chuyển đổi. Đồ án xây dựng và so sánh 3 phương pháp gợi ý khác nhau trên tập dữ liệu hành vi thực tế của một cửa hàng điện tử, sau đó **đóng gói thành 1 REST API phục vụ thời gian thực**, có kiểm thử tự động và triển khai bằng Docker.
 
 ---
 
@@ -31,7 +35,7 @@ Trong bối cảnh quá tải thông tin của thương mại điện tử, hệ
 
 ---
 
-## Pipeline xử lý
+## Pipeline xử lý (huấn luyện mô hình)
 
 ```
 Raw Data (CSV)
@@ -61,6 +65,9 @@ GD3: Xây dựng mô hình
       │
       ▼
 GD4: Đánh giá & So sánh (Precision@10, Recall@10)
+      │
+      ▼
+Export model (.pkl) + log MLflow → artifacts/
 ```
 
 ---
@@ -96,6 +103,8 @@ Phân luồng người dùng thành 3 nhóm, áp dụng chiến lược phù h�
 
 $$Score_{final} = (w_{ALS} \times Score_{ALS}) + (w_{Content} \times Score_{Content})$$
 
+Logic này được tái hiện lại nguyên vẹn trong `model_utils.py` để phục vụ real-time qua API (xem phần Kiến trúc bên dưới).
+
 ---
 
 ## Kết quả đánh giá (Top-10 Recommendation)
@@ -109,40 +118,136 @@ $$Score_{final} = (w_{ALS} \times Score_{ALS}) + (w_{Content} \times Score_{Cont
 | ALS (Collaborative) | 1.90% | 13.33% |
 | Trending (Baseline) | 1.43% | 10.00% |
 
-> **Nhận xét:** Hybrid vượt trội nhờ kết hợp được thế mạnh của cả ALS (hiểu hành vi người dùng) và Content-Based (hiểu đặc tính sản phẩm). Precision thấp (~4.7%) là bình thường với bài toán Top-N Recommendation do ưu tiên độ đa dạng.
+> **Nhận xét:** Hybrid vượt trội nhờ kết hợp được thế mạnh của cả ALS (hiểu hành vi người dùng) và Content-Based (hiểu đặc tính sản phẩm). Precision thấp (~4.7%) là bình thường với bài toán Top-N Recommendation, do tập test chỉ có 21 user active và độ thưa dữ liệu (sparsity) rất cao (99.98%).
+
+Bảng này được log tự động lên **MLflow** mỗi lần train (xem phần bên dưới), và đọc lại được từ Streamlit dashboard.
 
 ---
 
-## Cài đặt
+## Kiến trúc & Triển khai (Serving Architecture)
+
+Model sau khi train ở notebook được **export ra `.pkl`** và phục vụ qua 1 REST API độc lập, tách rời hoàn toàn khỏi notebook:
+
+```
+                         ┌─────────────────┐
+   main.ipynb  ──export──▶   artifacts/    │  (.pkl: ALS, cosine_sim,
+  (train models)          │   *.pkl files   │   trending, loyal_user_ids)
+                         └────────┬─────────┘
+                                  │ mount (volume)
+                                  ▼
+   PostgreSQL  ◀──SQLAlchemy──  FastAPI (app.py + model_utils.py)
+  (feature_engineering.sql:                │
+   user_last_viewed_product)               ▼
+                                   GET /recommend/{user_id}
+                                   GET /health
+```
+
+- **`feature_engineering.sql`**: tạo view `user_last_viewed_product`, `user_features`, `trending_top10` trực tiếp trên PostgreSQL — tách phần feature engineering "online" ra khỏi notebook.
+- **`model_utils.py`**: load các file `.pkl`, tái hiện đúng logic Hybrid Waterfall, và query PostgreSQL để biết sản phẩm user vừa xem gần nhất.
+- **`app.py`**: expose logic trên qua FastAPI (`/recommend/{user_id}?n=10`).
+- **`tests/`**: unit test cho toàn bộ logic phân nhóm (loyal/casual/cold-start) và endpoint API, dùng mock nên **không cần model thật hay DB thật để chạy** — chạy được trên CI.
+- **`.github/workflows/ci.yml`**: tự động chạy test + build Docker image mỗi lần push.
+
+---
+
+## Cách chạy dự án
+
+### 1. Train model (notebook)
 
 ```bash
 pip install implicit pandas numpy scikit-learn matplotlib seaborn scipy tqdm
-```
-
-**Chạy notebook:**
-
-```bash
 jupyter notebook main.ipynb
 ```
 
-Chạy tuần tự các section: **GD1 → GD2 → GD3 → GD4**
+Chạy tuần tự **GD1 → GD2 → GD3 → GD4**, sau đó chạy 2 cell cuối:
+1. `export_models_from_notebook.py` (đã dán sẵn vào notebook) → tạo `artifacts/*.pkl`
+2. `mlflow_logging_cell.py` (xem mục MLflow bên dưới) → log kết quả + xuất `evaluation_results.csv`
+
+### 2. Chạy API cục bộ (không Docker)
+
+```bash
+pip install -r requirements.txt
+# tạo file .env với DATABASE_URL=postgresql://user:pass@localhost:5432/ecommerce
+psql -U postgres -d ecommerce -f feature_engineering.sql
+uvicorn app:app --reload --port 8000
+```
+
+Test: `curl http://localhost:8000/recommend/123` hoặc mở `http://localhost:8000/docs`.
+
+### 3. Chạy toàn bộ bằng Docker Compose (khuyến nghị)
+
+```bash
+docker compose up --build
+```
+
+Tự động dựng PostgreSQL + chạy `feature_engineering.sql` + build & chạy API — chỉ cần đã có sẵn `artifacts/` (từ bước 1).
+
+### 4. Chạy test
+
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+### 5. MLflow — theo dõi thí nghiệm (experiment tracking)
+
+```bash
+pip install -r requirements-dashboard.txt
+```
+
+Dán nội dung `mlflow_logging_cell.py` vào 1 ô mới trong `main.ipynb` (chạy sau GD4), rồi:
+
+```bash
+mlflow ui
+```
+
+Mở `http://localhost:5000` — xem lại hyperparameter + Precision/Recall của từng lần train, so sánh trực tiếp giữa các lần chỉnh `factors`, `regularization`,...
+
+### 6. Streamlit dashboard — demo trực quan
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Giao diện web cho phép:
+- Nhập `user_id` → xem ngay gợi ý + nhóm khách hàng (loyal/casual/cold-start) mà không cần gõ `curl`
+- Xem biểu đồ so sánh Precision@10/Recall@10 giữa 4 phương pháp (đọc từ `evaluation_results.csv` nếu đã chạy MLflow, không thì dùng số liệu trong bảng kết quả ở trên)
 
 ---
 
 ## Cấu trúc project
 
 ```
-RECOMMENDATION_SYSTEM/
-├── main.ipynb       ← Notebook chính (đầy đủ 4 giai đoạn)
-├── data.csv         ← Dataset (tải từ Kaggle)
-└── RECOMMENDATION_SYSTEM.pdf  ← Báo cáo đồ án
+E-Commerce-System/
+├── main.ipynb                        ← Notebook chính (EDA, train, export, MLflow)
+├── data.csv                          ← Dataset (tải từ Kaggle, gitignored)
+├── export_models_from_notebook.py    ← Cell export model → artifacts/*.pkl
+├── mlflow_logging_cell.py            ← Cell log kết quả train lên MLflow
+├── feature_engineering.sql           ← Tạo bảng/view trên PostgreSQL
+├── app.py                            ← FastAPI serving
+├── model_utils.py                    ← Logic Hybrid Waterfall + load artifacts
+├── streamlit_app.py                  ← Dashboard demo
+├── tests/
+│   ├── test_model_utils.py           ← Unit test logic gợi ý
+│   └── test_app.py                   ← Test API endpoints
+├── Dockerfile
+├── docker-compose.yml
+├── .github/workflows/ci.yml          ← CI: test + build Docker mỗi lần push
+├── requirements.txt                  ← Dependency cho API (production)
+├── requirements-dev.txt              ← pytest, httpx (test)
+├── requirements-dashboard.txt        ← mlflow, streamlit (demo/tracking)
+├── LICENSE
+└── RECOMMENDATION_SYSTEM.pdf         ← Báo cáo đồ án
 ```
 
 ---
 
 ## Thư viện sử dụng
 
-`pandas`, `numpy`, `matplotlib`, `seaborn`, `scikit-learn`, `scipy`, `implicit`, `tqdm`
+**Notebook/Modeling:** `pandas`, `numpy`, `matplotlib`, `seaborn`, `scikit-learn`, `scipy`, `implicit`, `tqdm`
+**API Serving:** `fastapi`, `uvicorn`, `sqlalchemy`, `psycopg2-binary`, `python-dotenv`
+**Test & CI:** `pytest`, `httpx`
+**Tracking & Demo:** `mlflow`, `streamlit`
 
 ---
 
@@ -151,3 +256,9 @@ RECOMMENDATION_SYSTEM/
 - Bài giảng môn Python cho Khoa học Dữ liệu — ThS. Hà Văn Thảo
 - [7 Types of Hybrid Recommendation System](https://medium.com/analytics-vidhya/7-types-of-hybrid-recommendation-system-3e4f78266ad8)
 - [Tổng quan về Recommender System](https://viblo.asia/p/tong-quan-ve-recommender-system-recommender-system-co-ban-phan-1-924lJGBb5PM)
+
+---
+
+## License
+
+Phát hành theo giấy phép [MIT](LICENSE).
